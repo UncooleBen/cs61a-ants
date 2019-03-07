@@ -25,6 +25,8 @@ class Place(object):
         # Phase 1: Add an entrance to the exit
         # BEGIN Problem 2
         "*** YOUR CODE HERE ***"
+        if (self.exit):
+            self.exit.entrance = self
         # END Problem 2
 
     def add_insect(self, insect):
@@ -214,7 +216,13 @@ class ThrowerAnt(Ant):
         This method returns None if there is no such Bee (or none in range).
         """
         # BEGIN Problem 3 and 4
-        return random_or_none(self.place.bees)
+        place = self.place
+        while (place!=hive):
+            if (place.bees):
+                return random.choice(place.bees)
+            else:
+                place = place.entrance
+        return None
         # END Problem 3 and 4
 
     def throw_at(self, target):
@@ -241,7 +249,25 @@ class ShortThrower(ThrowerAnt):
     name = 'Short'
     # OVERRIDE CLASS ATTRIBUTES HERE
     # BEGIN Problem 4
-    implemented = False   # Change to True to view in the GUI
+    implemented = True   # Change to True to view in the GUI
+    food_cost = 2
+    max_range = 3
+    def nearest_bee(self, hive):
+        """Return the Bee at least five entrances away in a Place that is not the HIVE, connected to
+        the ShortEntrances's Place by following entrances.
+
+        This method returns None if there is no such Bee (or none in range).
+        """
+        entrance_count = 0
+        place = self.place
+        while (place!=hive and entrance_count<=self.max_range):
+            if (place.bees):
+                return random.choice(place.bees)
+            else:
+                place = place.entrance
+                entrance_count += 1
+        return None
+        
     # END Problem 4
 
 class LongThrower(ThrowerAnt):
@@ -250,7 +276,24 @@ class LongThrower(ThrowerAnt):
     name = 'Long'
     # OVERRIDE CLASS ATTRIBUTES HERE
     # BEGIN Problem 4
-    implemented = False   # Change to True to view in the GUI
+    implemented = True   # Change to True to view in the GUI
+    food_cost = 2
+    min_range = 5
+    def nearest_bee(self, hive):
+        """Return the Bee at least five entrances away in a Place that is not the HIVE, connected to
+        the ShortEntrances's Place by following entrances.
+
+        This method returns None if there is no such Bee (or none in range).
+        """
+        entrance_count = 0
+        place = self.place
+        while (place!=hive):
+            if (place.bees and entrance_count>=self.min_range):
+                return random.choice(place.bees)
+            else:
+                place = place.entrance
+                entrance_count += 1
+        return None
     # END Problem 4
 
 class FireAnt(Ant):
@@ -259,8 +302,11 @@ class FireAnt(Ant):
     name = 'Fire'
     damage = 3
     # OVERRIDE CLASS ATTRIBUTES HERE
+    food_cost = 5
+    armor = 1
+    damage = 3
     # BEGIN Problem 5
-    implemented = False   # Change to True to view in the GUI
+    implemented = True   # Change to True to view in the GUI
     # END Problem 5
 
     def reduce_armor(self, amount):
@@ -270,6 +316,12 @@ class FireAnt(Ant):
         """
         # BEGIN Problem 5
         "*** YOUR CODE HERE ***"
+        self.armor -= amount
+        if (self.armor<=0):
+            bees_copy = self.place.bees.copy()
+            for i in range(len(bees_copy)):
+                bees_copy[i].reduce_armor(self.damage)
+            self.place.ant = None
         # END Problem 5
 
 class HungryAnt(Ant):
