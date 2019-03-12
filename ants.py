@@ -77,7 +77,7 @@ class Place(object):
             # Special handling for QueenAnt
             # BEGIN Problem 13
             "*** YOUR CODE HERE ***"
-            if (insect.name == 'Queen' and not insect.isImpostor):
+            if (hasattr(insect, 'name') and insect.name == 'Queen' and not insect.isImpostor):
                 return
             # END Problem 13
 
@@ -148,7 +148,17 @@ class Bee(Insect):
     damage = 1
     # OVERRIDE CLASS ATTRIBUTES HERE
     is_watersafe = True
-
+    def __init__(self, armor, place=None):
+        # Total debuff time for each debuff
+        self.debuff = dict()
+        # Layers of Syrup
+        self.debuff_times = dict()
+        # Cannot scare a bee twice
+        self.is_scared = False
+        # Whether the bee is fleeing
+        self.is_fleeing = False
+        super(Bee, self).__init__(armor, place)
+        
     def sting(self, ant):
         """Attack an ANT, reducing its armor by 1."""
         ant.reduce_armor(self.damage)
@@ -175,6 +185,9 @@ class Bee(Insect):
         # Extra credit: Special handling for bee direction
         # BEGIN EC
         "*** YOUR CODE HERE ***"
+        if (self.is_fleeing):
+            destination = self.place.entrance
+        print("DEBUG: normal action", self.is_fleeing)
         # END EC
         if self.blocked():
             self.sting(self.place.ant)
@@ -574,6 +587,24 @@ def make_slow(action, bee):
     """
     # BEGIN Problem EC
     "*** YOUR CODE HERE ***"
+    # To record the start time of debuff
+    first_call = True
+    start_time = 0
+    def slow_action(colony):
+        nonlocal first_call
+        nonlocal start_time
+        if (first_call):
+            start_time = colony.time
+            first_call = False
+        # Total debuff time should greater than the time passed by
+        if (bee.debuff[make_slow]-(colony.time-start_time)<=0):
+            bee.action = action
+            bee.action(colony)
+            bee.debuff[make_slow] = 0
+        else:
+            if (colony.time%2==0):
+                action(colony)
+    return slow_action
     # END Problem EC
 
 def make_scare(action, bee):
@@ -583,12 +614,42 @@ def make_scare(action, bee):
     """
     # BEGIN Problem EC
     "*** YOUR CODE HERE ***"
+    # Cannot scare a bee twice
+    if (bee.is_scared):
+        bee.debuff[make_care] = 0
+        return action
+    def scared_action(colony):
+        if (bee.debuff[make_scare]==0):
+            bee.is_fleeing = False
+            action(colony)
+        else:
+            bee.is_fleeing = True
+            action(colony)
+            bee.debuff[make_scare] -= 1
+    return scared_action
     # END Problem EC
 
 def apply_effect(effect, bee, duration):
     """Apply a status effect to a BEE that lasts for DURATION turns."""
     # BEGIN Problem EC
     "*** YOUR CODE HERE ***"
+    if (not effect in bee.debuff_times):
+        bee.debuff_times[effect] = 1
+    else:
+        bee.debuff_times[effect] += 1
+    # Only when the bee is not slowed will us call the make_slow function
+    # Other times we are just adding up descending timesteps
+    if (not effect in bee.debuff or not bee.debuff[effect]):
+        bee.action = effect(bee.action, bee)
+    # I guessed from the tests that multiple syrup on single bee will have linear decreasing effect
+    # Syrup a bee 3 times in 1 timestep will debuff it for 3+2+1=6 timesteps
+    duration_accumulation = bee.debuff_times[effect]-1
+    if (duration_accumulation<0):
+        duration_accumulation = 0
+    if (effect in bee.debuff):
+        bee.debuff[effect] += duration-duration_accumulation
+    else:
+        bee.debuff[effect] = duration-duration_accumulation
     # END Problem EC
 
 
@@ -597,7 +658,8 @@ class SlowThrower(ThrowerAnt):
 
     name = 'Slow'
     # BEGIN Problem EC
-    implemented = False   # Change to True to view in the GUI
+    implemented = True   # Change to True to view in the GUI
+    food_cost = 4
     # END Problem EC
 
     def throw_at(self, target):
@@ -610,12 +672,16 @@ class ScaryThrower(ThrowerAnt):
 
     name = 'Scary'
     # BEGIN Problem EC
-    implemented = False   # Change to True to view in the GUI
+    implemented = True   # Change to True to view in the GUI
+    food_cost = 6
     # END Problem EC
 
     def throw_at(self, target):
         # BEGIN Problem EC
         "*** YOUR CODE HERE ***"
+        if (target and not target.is_scared):
+            apply_effect(make_scare, target, 2)
+            target.is_scared = True
         # END Problem EC
 
 class LaserAnt(ThrowerAnt):
